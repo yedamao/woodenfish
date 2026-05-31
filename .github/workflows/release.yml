@@ -31,6 +31,16 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             clean build
 
+      - name: Ad-hoc sign the app
+        run: |
+          APP="build/release/Build/Products/Release/WoodenFish.app"
+          # Strip any stale signature, then apply a clean deep ad-hoc signature
+          # so the bundle's seal is internally consistent. Without this the app
+          # opens as "damaged" once the download quarantine flag is set.
+          codesign --remove-signature "$APP" 2>/dev/null || true
+          codesign --force --deep --sign - --timestamp=none "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
       - name: Package DMG
         run: |
           APP="build/release/Build/Products/Release/WoodenFish.app"
@@ -56,3 +66,19 @@ jobs:
         with:
           files: WoodenFish.dmg
           generate_release_notes: true
+          body: |
+            ## Install
+
+            1. Open `WoodenFish.dmg` and drag **WoodenFish** into **Applications**.
+            2. This app is **not notarized** by Apple, so the first launch is blocked.
+               Clear the download quarantine flag, then open it:
+
+               ```bash
+               xattr -dr com.apple.quarantine /Applications/WoodenFish.app
+               open /Applications/WoodenFish.app
+               ```
+
+            > If macOS still says the app "is damaged", the `xattr` command above
+            > is the fix — it removes the quarantine attribute macOS adds to files
+            > downloaded from the internet. (Alternatively: right-click the app →
+            > **Open** → **Open**.)
